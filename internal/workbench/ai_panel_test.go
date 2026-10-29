@@ -412,6 +412,18 @@ func TestMessageBoxWrapsLongMessagesAndMovesTheCaretByRow(t *testing.T) {
 	if selection := state.ai.input.Selection(); selection.Start >= selection.End {
 		t.Errorf("Shift+End selected nothing: %+v", selection)
 	}
+
+	// Option/Alt+Left and Right use the editor's word boundaries, including
+	// Shift selection, when the application event path receives the chord.
+	state.ai.input = *text.NewEditor("alpha beta/gamma")
+	state.Key(ui.KeyEvent{Key: ui.KeyLeft, Modifiers: ui.ModifierAlt, Target: hitAIInput})
+	if caret := state.ai.input.Caret(); caret != 11 {
+		t.Fatalf("Option+Left moved caret to %d, want 11", caret)
+	}
+	state.Key(ui.KeyEvent{Key: ui.KeyRight, Modifiers: ui.ModifierAlt | ui.ModifierShift, Target: hitAIInput})
+	if selection := state.ai.input.Selection(); selection != (text.Range{Start: 11, End: 16}) {
+		t.Fatalf("Option+Shift+Right selection = %+v, want 11:16", selection)
+	}
 }
 
 func TestModelChipSwitchesTheModelThatAnswers(t *testing.T) {

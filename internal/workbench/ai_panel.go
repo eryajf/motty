@@ -803,6 +803,15 @@ func (state *State) aiPanelKey(event ui.KeyEvent) (ui.EventResult, bool) {
 		return ui.EventResult{Handled: true, Repaint: true, Focus: hitAIInput}, true
 	}
 	if event.Target == hitAIInput {
+		// AppKit and the browser text host normally consume Option/Alt with
+		// Left or Right as a word move. Keep the application event path
+		// equivalent for headless drivers and any backend that forwards the
+		// chord to OnKey instead of the native text service.
+		if event.Modifiers&ui.ModifierAlt != 0 && event.Modifiers&(ui.ModifierControl|ui.ModifierMeta) == 0 &&
+			(event.Key == ui.KeyLeft || event.Key == ui.KeyRight) {
+			ai.input.MoveWord(event.Key == ui.KeyRight, event.Modifiers&ui.ModifierShift != 0)
+			return handled, true
+		}
 		// Up, Down, Home, End and the page keys move by the rows the box wrapped to.
 		if movement, extend := components.TextareaMovementForKey(event.Key, event.Modifiers); movement != components.TextareaMoveNone {
 			value := ai.input.String()

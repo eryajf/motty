@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/vivaui/viva/app"
+	"github.com/vivaui/viva/ui"
 )
 
 // Exercise the real composer/provider/placement path. Windows' preservation
@@ -60,4 +61,53 @@ func TestAIComposerPreeditCommitAndSend(t *testing.T) {
 		t.Fatal("Enter did not send the committed message")
 	}
 	pumpWindow(t, state, func() bool { return state.ai.run == nil })
+}
+
+func TestAIComposerModifiedDeleteCommands(t *testing.T) {
+	state, _ := panelState(t, nil)
+	state.Click(hitAIToggle)
+	canvas, _ := paintAt(state, panelWide)
+	box := panelHit(t, canvas, hitAIInput).Bounds
+	var nativeInput app.TextInput
+	driver, err := app.NewDriver(app.Config{
+		Title: "assistant modified delete", Width: int(panelWide.Width), Height: int(panelWide.Height), Tree: Tree(),
+		Paint: state.Paint,
+		TextInput: func(context app.TextInputContext) *app.TextInput {
+			if input := state.AIPanelInput(context); input != nil {
+				return input
+			}
+			editor := state.EditorFor(context.ID)
+			if editor == nil {
+				return nil
+			}
+			nativeInput = app.TextInput{Editor: editor}
+			return &nativeInput
+		},
+		OnPointer: state.Pointer, OnKey: state.Key, OnShortcut: state.Shortcut,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer driver.Close()
+	if err := driver.Click(box.X+box.Width/2, box.Y+box.Height/2); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Type("第一行\n第二行"); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Key(ui.KeyBackspace, ui.ModifierMeta); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.ai.input.String(); got != "第一行\n" {
+		t.Fatalf("Cmd+Backspace left %q, want the second line removed", got)
+	}
+	if err := driver.SelectText(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := driver.Key(ui.KeyDelete, ui.ModifierMeta); err != nil {
+		t.Fatal(err)
+	}
+	if got := state.ai.input.String(); got != "\n" {
+		t.Fatalf("Cmd+Delete left %q, want the first line removed", got)
+	}
 }
